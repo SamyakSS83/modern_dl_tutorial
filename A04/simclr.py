@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class ProjectionHead(nn.Module):
@@ -16,12 +17,16 @@ class ProjectionHead(nn.Module):
             Build a 2-layer MLP projection head.
         """
         super().__init__()
-        # TODO: define projection head modules.
-        raise NotImplementedError("Implement ProjectionHead layers.")
+        self.net = nn.Sequential(
+            nn.Linear(in_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, out_dim),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Project encoder output features."""
-        raise NotImplementedError("Implement ProjectionHead.forward.")
+        return self.net(x)
 
 
 class NTXentLoss(nn.Module):
@@ -39,7 +44,22 @@ class NTXentLoss(nn.Module):
             z1: (B, D) projected features for view 1.
             z2: (B, D) projected features for view 2.
         """
-        raise NotImplementedError("Implement NT-Xent forward computation.")
+        batch_size = z1.size(0)
+        z = torch.cat([z1, z2], dim=0)
+        z = F.normalize(z, dim=1)
+
+        sim = torch.matmul(z, z.t()) / self.temperature
+        idx = torch.arange(2 * batch_size, device=z.device)
+        pos_idx = (idx + batch_size) % (2 * batch_size)
+        positives = sim[idx, pos_idx].unsqueeze(1)
+
+        neg_mask = torch.ones_like(sim, dtype=torch.bool)
+        neg_mask[idx, idx] = False
+        neg_mask[idx, pos_idx] = False
+        negatives = sim[neg_mask].view(2 * batch_size, -1)
+        logits = torch.cat([positives, negatives], dim=1)
+        labels = torch.zeros(2 * batch_size, device=z.device, dtype=torch.long)
+        return F.cross_entropy(logits, labels)
 
 
 class SimCLR(nn.Module):
