@@ -24,12 +24,20 @@ class FineTuner(nn.Module):
         """
         super().__init__()
         self.backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        # TODO: Freeze backbone params when freeze=True.
-        # TODO: Replace classifier head with output size num_classes.
-        raise NotImplementedError(
-            "Implement freeze logic and classifier head replacement in __init__."
-        )
+        in_features = self.backbone.fc.in_features
+        self.backbone.fc = nn.Linear(in_features, num_classes)
+
+        if freeze:
+            for param in self.backbone.parameters():
+                param.requires_grad = False
+            for param in self.backbone.fc.parameters():
+                param.requires_grad = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through model backbone."""
         return self.backbone(x)
+
+    def unfreeze_all(self) -> None:
+        """Unfreeze all model parameters."""
+        for param in self.backbone.parameters():
+            param.requires_grad = True

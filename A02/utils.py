@@ -30,6 +30,7 @@ def get_transforms(split: str, image_size: int) -> transforms.Compose:
         return transforms.Compose(
             [
                 transforms.Resize((image_size, image_size)),
+                transforms.RandomCrop(image_size, padding=8),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(mean, std),

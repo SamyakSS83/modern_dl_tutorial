@@ -79,7 +79,8 @@ def main(args: argparse.Namespace) -> None:
 
     model = FineTuner(num_classes=10, freeze=args.freeze).to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    trainable_params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.AdamW(trainable_params, lr=args.lr)
 
     best_val = -1.0
     for epoch in range(1, args.epochs + 1):
@@ -115,6 +116,16 @@ def main(args: argparse.Namespace) -> None:
                 "val_metric": val_acc,
             }
             torch.save(ckpt, Path(args.save_dir) / "best.pt")
+
+        torch.save(
+            {
+                "epoch": epoch,
+                "model_state": model.state_dict(),
+                "optimizer_state": optimizer.state_dict(),
+                "val_metric": val_acc,
+            },
+            Path(args.save_dir) / "last.pt",
+        )
 
 
 if __name__ == "__main__":
