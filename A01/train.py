@@ -56,7 +56,12 @@ def main(args: argparse.Namespace) -> None:
     device = get_device()
     Path(args.save_dir).mkdir(parents=True, exist_ok=True)
 
-    transform = transforms.Compose([transforms.ToTensor()])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),
+        ]
+    )
     full_train = datasets.MNIST(
         root=args.data_dir,
         train=True,
@@ -88,10 +93,12 @@ def main(args: argparse.Namespace) -> None:
     if args.compile and hasattr(torch, "compile"):
         model = torch.compile(model)
 
+    criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     train_losses: list[float] = []
     val_accs: list[float] = []
+    best_val_acc = -1.0
 
     for epoch in range(1, args.epochs + 1):
         model.train()
@@ -101,14 +108,14 @@ def main(args: argparse.Namespace) -> None:
             images = images.to(device)
             labels = labels.to(device)
 
-            # TODO: zero gradients with optimizer.zero_grad()
-            # TODO: run forward pass logits = model(images)
-            # TODO: compute classification loss
-            # TODO: loss.backward()
-            # TODO: optimizer.step()
-            raise NotImplementedError(
-                "Fill in the core training step inside the loop."
-            )
+            optimizer.zero_grad()
+            logits = model(images)
+            loss = criterion(logits, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item() * images.size(0)
+            seen += images.size(0)
 
         train_loss = running_loss / max(seen, 1)
         _, val_acc = evaluate(model, val_loader, device)
@@ -127,6 +134,9 @@ def main(args: argparse.Namespace) -> None:
             "val_metric": val_acc,
         }
         torch.save(ckpt, Path(args.save_dir) / "last.pt")
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            torch.save(ckpt, Path(args.save_dir) / "best.pt")
 
     plot_curves(train_losses, val_accs, str(Path(args.save_dir) / "curves.png"))
 

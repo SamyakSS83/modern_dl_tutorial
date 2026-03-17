@@ -25,7 +25,12 @@ def parse_args() -> argparse.Namespace:
 def main(args: argparse.Namespace) -> None:
     """Run test-set accuracy evaluation."""
     device = get_device()
-    transform = transforms.Compose([transforms.ToTensor()])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),
+        ]
+    )
     test_ds = datasets.MNIST(
         root=args.data_dir,
         train=False,
