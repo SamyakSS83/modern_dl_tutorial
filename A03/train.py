@@ -3,16 +3,58 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import torch
 import torch.nn as nn
 from sklearn.metrics import roc_auc_score
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 
 from focal_loss import FocalLoss
 from se_block import SEResNet18
+
+
+# EuroSAT normalization (ImageNet stats)
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
+
+
+def get_transforms(split: str, image_size: int = 224) -> transforms.Compose:
+    """Get augmentation pipeline."""
+    if split == "train":
+        return transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.RandomCrop(image_size, padding=8),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+        ])
+    else:
+        return transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+        ])
+
+
+class EuroSATDataset:
+    """EuroSAT dataset wrapper with splits from splits.json."""
+
+    def __init__(self, data_dir: str, split: str = "train", image_size: int = 224):
+        self.base = datasets.EuroSAT(root=str(Path(data_dir)), download=False,
+                                     transform=get_transforms(split, image_size))
+        splits_file = Path(data_dir) / "splits.json"
+        with open(splits_file, "r") as f:
+            split_data = json.load(f)
+        self.indices = split_data[split]
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        return self.base[self.indices[idx]]
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,9 +64,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--save_dir", type=str, default="./artifacts")
     parser.add_argument("--loss", type=str, choices=["ce", "focal"], default="ce")
     parser.add_argument("--gamma", type=float, default=2.0)
-    parser.add_argument("--epochs", type=int, default=5)
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--epochs", type=int, default=15)
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--image_size", type=int, default=224)
     return parser.parse_args()
 
 
@@ -49,14 +92,9 @@ def main(args: argparse.Namespace) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     Path(args.save_dir).mkdir(parents=True, exist_ok=True)
 
-    tfm = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-    ])
-    ds = datasets.CIFAR10(root=args.data_dir, train=True, transform=tfm,
-                          download=True)
-    n_train = int(0.9 * len(ds))
-    train_ds, val_ds = random_split(ds, [n_train, len(ds) - n_train])
+    # Load EuroSAT train and val splits
+    train_ds = EuroSATDataset(args.data_dir, split="train", image_size=args.image_size)
+    val_ds = EuroSATDataset(args.data_dir, split="val", image_size=args.image_size)
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False)
 
@@ -86,7 +124,7 @@ def main(args: argparse.Namespace) -> None:
         val_auc = eval_auc(model, val_loader, device)
         print(
             f"Epoch {epoch}/{args.epochs} | "
-            f"Loss: {train_loss:.4f} | Val Acc: {val_auc:.4f}"
+            f"Train Loss: {train_loss:.4f} | Val AUC: {val_auc:.4f}"
         )
 
         if val_auc > best_auc:
@@ -100,6 +138,17 @@ def main(args: argparse.Namespace) -> None:
                 },
                 Path(args.save_dir) / "best.pt",
             )
+        
+        # Always save last checkpoint
+        torch.save(
+            {
+                "epoch": epoch,
+                "model_state": model.state_dict(),
+                "optimizer_state": optimizer.state_dict(),
+                "val_metric": val_auc,
+            },
+            Path(args.save_dir) / "last.pt",
+        )
 
 
 if __name__ == "__main__":
