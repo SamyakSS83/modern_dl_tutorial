@@ -26,14 +26,14 @@ RNNs solve this by introducing a hidden state $h_t$ that summarizes everything
 
 ```mermaid
 flowchart LR
-  x1[x_1] --> r1[RNN cell] --> h1[h_1]
-  x2[x_2] --> r2[RNN cell] --> h2[h_2]
-  x3[x_3] --> r3[RNN cell] --> h3[h_3]
+  x1["x1"] --> r1["RNN cell"] --> h1["h1"]
+  x2["x2"] --> r2["RNN cell"] --> h2["h2"]
+  x3["x3"] --> r3["RNN cell"] --> h3["h3"]
   h1 --> r2
   h2 --> r3
-  h1 --> y1[y_1]
-  h2 --> y2[y_2]
-  h3 --> y3[y_3]
+  h1 --> y1["y1"]
+  h2 --> y2["y2"]
+  h3 --> y3["y3"]
 ```
 
 ### The Elman RNN (char-level LM)
@@ -65,14 +65,14 @@ The key feature is **weight sharing**: the same parameters apply at every
 
 ```mermaid
 flowchart LR
-  xt[x_t] --> Wxh[W_xh]
-  ht1[h_{t-1}] --> Whh[W_hh]
-  Wxh --> at[a_t]
+  xt["x_t"] --> Wxh["W_xh"]
+  ht1["h_t-1"] --> Whh["W_hh"]
+  Wxh --> at["a_t"]
   Whh --> at
-  at --> ht[h_t = tanh(a_t)]
-  ht --> Why[W_hy]
-  Why --> zt[z_t]
-  zt --> pt[softmax]
+  at --> ht["h_t = tanh(a_t)"]
+  ht --> Why["W_hy"]
+  Why --> zt["z_t"]
+  zt --> pt["softmax"]
 ```
 
 ### Weight initialization and symmetry
@@ -115,12 +115,12 @@ term is the most common BPTT bug.
 
 ```mermaid
 flowchart RL
-  yloss[L_t] --> dy[delta_t^y]
-  dy --> dh1[W_hy^T]
-  dn[delta_{t+1}^a] --> dh2[W_hh^T]
-  dh1 --> dh[delta_t^h]
+  yloss["L_t"] --> dy["delta_t_y"]
+  dy --> dh1["W_hy_T"]
+  dn["delta_t+1_a"] --> dh2["W_hh_T"]
+  dh1 --> dh["delta_t_h"]
   dh2 --> dh
-  dh --> da[delta_t^a = delta_t^h * tanh'(a_t)]
+  dh --> da["delta_t_a = delta_t_h * tanh'(a_t)"]
 ```
 
 ### Vanishing and exploding gradients
@@ -135,8 +135,8 @@ This is why vanilla RNNs struggle with long-range dependencies.
 
 ```mermaid
 flowchart LR
-  gT[delta_T] --> g3[W_hh^T] --> g2[W_hh^T] --> g1[W_hh^T]
-  g1 --> gt[delta_t]
+  gT["delta_T"] --> g3["W_hh_T"] --> g2["W_hh_T"] --> g1["W_hh_T"]
+  g1 --> gt["delta_t"]
   style gT fill:#fff,stroke:#111
   style gt fill:#fff,stroke:#111
 ```
@@ -168,17 +168,17 @@ gradients flow across many steps without shrinking.
 
 ```mermaid
 flowchart LR
-  xt[x_t] --> gates[All gates]
-  ht1[h_{t-1}] --> gates
-  gates --> ft[f_t]
-  gates --> it[i_t]
-  gates --> ot[o_t]
-  gates --> ct2[c~_t]
-  ct1[c_{t-1}] --> ct[c_t]
+  xt["x_t"] --> gates["All gates"]
+  ht1["h_t-1"] --> gates
+  gates --> ft["f_t"]
+  gates --> it["i_t"]
+  gates --> ot["o_t"]
+  gates --> ct2["c_tilde_t"]
+  ct1["c_t-1"] --> ct["c_t"]
   ft --> ct
   it --> ct
   ct2 --> ct
-  ct --> ht[h_t]
+  ct --> ht["h_t"]
   ot --> ht
 ```
 
