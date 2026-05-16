@@ -97,6 +97,13 @@ Each assignment folder contains a `README.md` with full theory, mathematical der
 
 ---
 
+## Lectures
+
+| Lecture | Link |
+|---------|------|
+| Trees by Shourya | https://drive.google.com/file/d/1BgQ5BIHGi34kpsq-fPZ1GAYtVkmUjsFf/view |
+
+---
 
 ## License
 
